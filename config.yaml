@@ -1,0 +1,13 @@
+logging:
+  level: INFO
+
+state:
+  backend: local_path
+  local_path:
+    state_path: state/state.parquet
+    meta_path: state/meta.json
+  github_release:
+    repository: ""
+    tag: state-latest
+    state_asset_name: state.parquet
+    meta_asset_name: meta.json
