@@ -1,0 +1,8 @@
+scryfall_id,qty,finish,set_code,collector_number
+id-1,2,Normal,set1,001
+id-1,3,FOIL,set1,001
+id-1,1,foil,set1,001
+id-2,4,,set2,010
+id-3,2,unknown,set3,099
+id-4,not-a-number,etched,set4,020
+,5,normal,set5,777

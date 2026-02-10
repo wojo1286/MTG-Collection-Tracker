@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from mtg_tracker.config import load_config
+from mtg_tracker.ingest import ingest_manabox_csv
 from mtg_tracker.logging_utils import setup_logging
 from mtg_tracker.state import build_state_backend
 
@@ -26,7 +27,11 @@ def main(argv: list[str] | None = None) -> int:
         run_report(args)
         return 0
 
-    if args.command in {"ingest", "seed", "daily"}:
+    if args.command == "ingest":
+        run_ingest(args)
+        return 0
+
+    if args.command in {"seed", "daily"}:
         backend = build_state_backend(config)
         LOGGER.info("Running '%s' stub with backend=%s", args.command, type(backend).__name__)
         LOGGER.info("Phase 0 only: '%s' is intentionally not implemented.", args.command)
@@ -42,7 +47,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command")
 
-    subparsers.add_parser("ingest", help="Phase 1 stub: ingest collection data")
+    ingest_parser = subparsers.add_parser(
+        "ingest", help="Ingest ManaBox CSV into normalized collection"
+    )
+    ingest_parser.add_argument("--input", required=True, help="Path to ManaBox CSV export")
+    ingest_parser.add_argument("--out", required=True, help="Output collection parquet path")
+    ingest_parser.add_argument(
+        "--debug-csv",
+        action="store_true",
+        help="Also write a collection CSV next to --out for debugging",
+    )
+
     subparsers.add_parser("seed", help="Phase 2 stub: create initial state from AllPrices")
     subparsers.add_parser("daily", help="Phase 3 stub: update daily prices and detect spikes")
 
@@ -73,3 +88,11 @@ def run_report(args: argparse.Namespace) -> None:
         encoding="utf-8",
     )
     LOGGER.info("Wrote dummy report artifacts to %s", output_dir)
+
+
+def run_ingest(args: argparse.Namespace) -> None:
+    ingest_manabox_csv(
+        input_path=Path(args.input),
+        output_path=Path(args.out),
+        debug_csv=bool(args.debug_csv),
+    )
