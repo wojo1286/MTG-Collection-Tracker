@@ -1,0 +1,21 @@
+{
+  "price_floor": 5.0,
+  "spike_pct_threshold": 0.2,
+  "guardrails": {
+    "abs_change_min": 1.0,
+    "pct_change_override": 0.5
+  },
+  "windows_days": [1, 3, 7],
+  "rolling_window_days": 14,
+  "pricing": {
+    "provider": "tcgplayer",
+    "price_type": "market",
+    "market": "paper"
+  },
+  "state_backend": {
+    "kind": "local_path",
+    "options": {
+      "root_dir": "state"
+    }
+  }
+}
