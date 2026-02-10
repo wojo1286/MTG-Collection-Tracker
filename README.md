@@ -29,3 +29,11 @@ Subcommands currently stubbed for phase wiring:
 ```bash
 pytest -q
 ```
+
+## Quick verification
+
+```bash
+python -m mtg_tracker --help
+mtg-tracker --help
+pytest -q
+```

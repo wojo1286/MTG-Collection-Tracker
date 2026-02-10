@@ -21,9 +21,15 @@ jobs:
         run: |
           python -m pip install -U pip
           python -m pip install -r requirements.txt -r requirements-dev.txt
+          python -m pip install -e .
       - name: Lint
         run: |
           ruff check .
           ruff format --check .
       - name: Test
         run: pytest -q
+
+      - name: CLI smoke
+        run: |
+          python -m mtg_tracker --help
+          mtg-tracker --help
