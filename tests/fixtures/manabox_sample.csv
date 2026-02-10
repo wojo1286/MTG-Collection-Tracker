@@ -1,0 +1,8 @@
+Binder Name,Binder Type,Name,Set code,Set name,Collector number,Foil,Rarity,Quantity,ManaBox ID,Scryfall ID
+Main,Collection,Card A,set1,Set One,001,Normal,Rare,2,mb-1,id-1
+Main,Collection,Card A,set1,Set One,001,FOIL,Rare,3,mb-2,id-1
+Main,Collection,Card A,set1,Set One,001,foil,Rare,1,mb-3,id-1
+Main,Collection,Card B,set2,Set Two,010,,Uncommon,4,mb-4,id-2
+Main,Collection,Card C,set3,Set Three,099,unknown,Mythic,2,mb-5,id-3
+Main,Collection,Card D,set4,Set Four,020,etched,Common,not-a-number,mb-6,id-4
+Main,Collection,Card E,set5,Set Five,777,normal,Common,5,mb-7,
