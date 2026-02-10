@@ -1,8 +1,22 @@
 Binder Name	Binder Type	Name	Set code	Set name	Collector number	Foil	Rarity	Quantity	ManaBox ID	Scryfall ID
-Main	Collection	Card A	set1	Set One	001	Normal	Rare	2	mb-1	id-1
-Main	Collection	Card A	set1	Set One	001	FOIL	Rare	3	mb-2	id-1
-Main	Collection	Card A	set1	Set One	001	foil	Rare	1	mb-3	id-1
-Main	Collection	Card B	set2	Set Two	010		Uncommon	4	mb-4	id-2
-Main	Collection	Card C	set3	Set Three	099	unknown	Mythic	2	mb-5	id-3
-Main	Collection	Card D	set4	Set Four	020	etched	Common	not-a-number	mb-6	id-4
-Main	Collection	Card E	set5	Set Five	777	normal	Common	5	mb-7	
+Luke's Binder	binder	Ancient Copper Dragon	CLB	Commander Legends: Battle for Baldur's Gate	396	normal	mythic	1	69341	e12d32a7-60b4-4e49-b279-970b170c1a9c
+Luke's Binder	binder	Empty City Ruse	PTK	Portal Three Kingdoms	3	normal	uncommon	1	35023	4d37c84c-80e5-453d-bd2e-4f77ff864c89
+Luke's Binder	binder	Silverclad Ferocidons	RIX	Rivals of Ixalan	115	normal	rare	1	2903	5f0d0c8d-c057-4a44-bd1e-38e1dd175778
+Luke's Binder	binder	Sylvan Tutor	LTC	Tales of Middle-earth Commander	531	normal	mythic	1	86826	ef6ec496-9103-43d0-b3b4-43ee76c5e4d1
+Luke's Binder	binder	Allosaurus Shepherd	2X2	Double Masters 2022	365		mythic	1	70227	543e99bd-04dc-4bf9-87df-86a810135dfe
+Scanned Cards	binder	Dreamtide Whale	MH3	Modern Horizons 3	450	normal	rare	1	94782	966e2066-ef45-4882-a420-247115a319b9
+Luke's Binder	binder	Volatile Stormdrake	MH3	Modern Horizons 3	329	normal	rare	2	94691	fb819762-02e8-4d32-8245-c44b809c34bb
+Scanned Cards	binder	Krenko, Mob Boss		Ravnica Remastered	430	normal	rare	1	89762	8056ff64-1bd3-46ae-a0aa-c22305c2b654
+Luke's Binder	binder	Ragavan, Nimble Pilferer	MH2	Modern Horizons 2	138	normal	mythic	1	59734	a9738cda-adb1-47fb-9f4c-ecd930228c4d
+Luke's Binder	binder	Atraxa, Praetors' Voice	MUL	Multiverse Legends	33	foil	mythic	1	80470	bd0d5a0c-5dec-439c-b037-9d17dda5ead3
+Luke's Binder	binder	Mondrak, Glory Dominus	ONE	Phyrexia: All Will Be One	299	foil	mythic	1	78835	c633ffe8-2198-4d62-969c-9a44a7ca132d
+Scanned Cards	binder	Clever Impersonator	C19	Commander 2019	82	normal	mythic	1	45852	c0516453-3e6a-4b7f-8df6-72a6e207169a
+Luke's Binder	binder	Winter Orb	4ED	Fourth Edition	358	normal	rare	1	39829	d60ee90d-5f7b-4294-8d52-9744fada8d36
+Luke's Binder	binder	Cyber Conversion	WHO	Doctor Who	946	foil	rare	1	88028	ed19c7cb-41cc-499f-ae76-fa08262f0834
+Luke's Binder	binder	Urza, Lord High Artificer	CMM	Commander Masters	674	foil	mythic	1	84719	a88c6f09-a0b2-46c9-a291-59408dfa52b0
+Luke's Binder	binder	Cyclonic Rift	RVR	Ravnica Remastered	313	normal	mythic	1	89717	631a15c2-0a6d-4859-91e9-a08a7e756054
+Luke's Binder	binder	Pirated Copy	J22	Jumpstart 2022	16	normal	mythic	1	76507	8a0567fb-2b4f-4fa9-8dfe-df4e665a4c5c
+Luke's Binder	binder	Chimil, the Inner Sun	LCI	The Lost Caverns of Ixalan	249	normal	mythic	2	88355	27a1bfb5-ddfc-49cf-baa3-5d1958d2067a
+Luke's Binder	binder	Serra's Emissary	MH2	Modern Horizons 2	30	foil	mythic	1	59764	b6534049-3045-4546-b1e8-e5b1b0df5f56
+Luke's Binder	binder	Pyrohemia	PLC	Planar Chaos	119	normal	uncommon	2	26415	0b778d44-60a9-4230-8090-73c38e7c9697
+Luke's Binder	binder	Phantasmal Image	MM3	Modern Masters 2017	46	normal	rare	1	6167	e7472958-dd1b-48a7-a960-ec2ef3b69ded
