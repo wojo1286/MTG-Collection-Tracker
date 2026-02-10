@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local state and downloaded data
+state/
+!src/mtg_tracker/state/
+!src/mtg_tracker/state/*.py
+downloads/
+caches/
+*.parquet
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
