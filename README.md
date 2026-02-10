@@ -2,6 +2,20 @@
 
 Phase 0 scaffolding for a collection tracker with pluggable state backends.
 
+## Bootstrap (Codespaces / new dev env)
+
+```bash
+bash scripts/bootstrap.sh
+```
+
+Then run:
+
+```bash
+ruff check .
+pytest -q
+mtg-tracker --help
+```
+
 ## Install
 
 ```bash
