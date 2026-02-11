@@ -42,3 +42,16 @@ def test_ingest_command_generates_collection_outputs(tmp_path: Path) -> None:
         "set_code",
         "collector_number",
     }
+
+
+def test_seed_help_includes_phase_2_arguments(capsys) -> None:
+    try:
+        main(["seed", "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+
+    captured = capsys.readouterr()
+    assert "--collection" in captured.out
+    assert "--allprices" in captured.out
+    assert "--identifiers" in captured.out
+    assert "--out-dir" in captured.out

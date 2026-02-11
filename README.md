@@ -32,11 +32,34 @@ mtg-tracker --help
 python -m mtg_tracker --help
 ```
 
-Subcommands currently stubbed for phase wiring:
+Subcommands:
 - `ingest`
-- `seed`
-- `daily`
+- `seed` (Phase 2: build 90-day seed + rolling state)
+- `daily` (Phase 3 stub)
 - `report` (creates a dummy report artifact)
+
+
+## Phase 2 seed usage
+
+Store private inputs in gitignored paths:
+
+- Collection parquet: `data/out/collection.parquet`
+- MTGJSON dumps: `downloads/AllPrices.json.xz`, `downloads/AllIdentifiers.json.xz`
+
+Example:
+
+```bash
+mtg-tracker seed \
+  --collection data/out/collection.parquet \
+  --allprices downloads/AllPrices.json.xz \
+  --identifiers downloads/AllIdentifiers.json.xz \
+  --out-dir data/seed
+```
+
+Outputs in `--out-dir`:
+- `seed_90d.parquet`
+- `state.parquet` (rolling N-day state, default 14)
+- `meta.json`
 
 ## Test
 

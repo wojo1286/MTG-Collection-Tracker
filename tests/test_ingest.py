@@ -72,7 +72,7 @@ def test_ingest_supports_tsv_input(tmp_path: Path) -> None:
         output_path=output_path,
     )
 
-    assert summary.total_input_rows == 7
+    assert summary.total_input_rows == 21
     out_df = pd.read_parquet(output_path)
     assert set(out_df.columns) == {
         "scryfall_id",
