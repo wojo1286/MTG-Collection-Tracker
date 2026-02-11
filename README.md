@@ -1,6 +1,11 @@
 # MTG-Collection-Tracker
 
-Phase 0 scaffolding for a collection tracker with pluggable state backends.
+A GitHub-first MTG collection price tracker that:
+- Ingests a ManaBox export into a normalized collection dataset (Phase 1)
+- Builds a filtered 90-day seed price history + rolling state from MTGJSON (Phase 2)
+- (Coming next) Runs daily updates + spike detection without committing a growing DB to git (Phase 3)
+
+---
 
 ## Bootstrap (Codespaces / new dev env)
 
@@ -12,39 +17,46 @@ Then run:
 
 ```bash
 ruff check .
+ruff format --check .
 pytest -q
 mtg-tracker --help
-```
-
-## Install
-
-```bash
+Install (manual)
 python -m pip install -U pip
 python -m pip install -r requirements.txt -r requirements-dev.txt
 python -m pip install -e .
 ```
-
 ## CLI
-
 ```bash
 mtg-tracker --help
-# or
-python -m mtg_tracker --help
 ```
 
 Subcommands:
-- `ingest`
-- `seed` (Phase 2: build 90-day seed + rolling state)
-- `daily` (Phase 3 stub)
-- `report` (creates a dummy report artifact)
 
+- 'ingest' (Phase 1: ManaBox → normalized collection parquet)
+- 'seed' (Phase 2: build 90-day seed + rolling state from MTGJSON)
+- 'daily' (Phase 3 stub)
+- 'report' (creates a dummy report artifact)
 
-## Phase 2 seed usage
+Note: Most workflows assume the editable install from scripts/bootstrap.sh so mtg-tracker is available.
+
+Local data locations (gitignored)
+These directories are intended for real/private files and scratch outputs and are not committed to git:
+
+- downloads/ — MTGJSON dumps (e.g., AllPrices.json.xz, AllIdentifiers.json.xz)
+- data/ — real/private collection inputs + outputs (e.g., data/out/collection.parquet)
+- tmp/ — scratch outputs / temporary run artifacts
+- tests/fixtures/ contains fake sample data only.
+
+Create the folders if they don't exist in a fresh clone:
+
+- mkdir -p downloads data/out data/seed tmp
+
+ ## Phase 2: Seed usage (real/private files)
 
 Store private inputs in gitignored paths:
 
-- Collection parquet: `data/out/collection.parquet`
-- MTGJSON dumps: `downloads/AllPrices.json.xz`, `downloads/AllIdentifiers.json.xz`
+- Collection parquet: data/out/collection.parquet
+- MTGJSON dumps: downloads/AllPrices.json.xz, downloads/AllIdentifiers.json.xz
 
 Example:
 
@@ -55,45 +67,52 @@ mtg-tracker seed \
   --identifiers downloads/AllIdentifiers.json.xz \
   --out-dir data/seed
 ```
+Outputs in --out-dir:
 
-Outputs in `--out-dir`:
-- `seed_90d.parquet`
-- `state.parquet` (rolling N-day state, default 14)
-- `meta.json`
+- seed_90d.parquet
+- state.parquet (rolling N-day state, default 14)
+- meta.json
 
-## Test
-
-```bash
-pytest -q
-```
-
-## Local data locations
-
-- `tests/fixtures/` contains fake sample data only.
-- `data/` is for real/private files and is gitignored.
-- `tmp/` is for scratch outputs and is gitignored.
-
-## Fixture-based seed smoke test
+## Fixture-based seed smoke test (tiny, deterministic)
 
 For a tiny local seed run with non-zero mapped and seed rows, first build a collection from the sample TSV,
-then run `seed` with the bundled tiny MTGJSON fixtures:
+then run 'seed' with the bundled tiny MTGJSON fixtures:
+
+mkdir -p tmp
 
 ```bash
-python -m mtg_tracker ingest \
+mtg-tracker ingest \
   --input tests/fixtures/manabox_sample.tsv \
   --out tmp/collection.parquet
 
-python -m mtg_tracker seed \
+rm -rf tmp/seed_test
+
+mtg-tracker seed \
   --collection tmp/collection.parquet \
   --allprices tests/fixtures/allprices_tiny.json \
   --identifiers tests/fixtures/allidentifiers_tiny.json \
   --out-dir tmp/seed_test
 ```
 
-## Quick verification
-
+## Quick output sanity check:
 ```bash
-python -m mtg_tracker --help
+python - <<'PY'
+import json
+from pathlib import Path
+import pyarrow.parquet as pq
+
+out = Path("tmp/seed_test")
+meta = json.loads((out / "meta.json").read_text())
+print("mapped_keys:", meta.get("mapped_keys"))
+print("seed rows:", pq.ParquetFile(out / "seed_90d.parquet").metadata.num_rows)
+print("state rows:", pq.ParquetFile(out / "state.parquet").metadata.num_rows)
+PY
+Test
+pytest -q
+Quick verification
 mtg-tracker --help
 pytest -q
+```
+```makefile
+::contentReference[oaicite:0]{index=0}
 ```
