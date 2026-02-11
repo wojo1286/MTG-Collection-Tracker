@@ -9,9 +9,12 @@ venv/
 state/
 !src/mtg_tracker/state/
 !src/mtg_tracker/state/*.py
+data/
+tmp/
 downloads/
 caches/
 *.parquet
+*.jsonl
 
 # Build artifacts
 build/

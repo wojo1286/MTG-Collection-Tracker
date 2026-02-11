@@ -44,6 +44,12 @@ Subcommands currently stubbed for phase wiring:
 pytest -q
 ```
 
+## Local data locations
+
+- `tests/fixtures/` contains fake sample data only.
+- `data/` is for real/private files and is gitignored.
+- `tmp/` is for scratch outputs and is gitignored.
+
 ## Quick verification
 
 ```bash
