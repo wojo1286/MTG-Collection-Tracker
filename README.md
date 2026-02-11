@@ -107,9 +107,14 @@ print("mapped_keys:", meta.get("mapped_keys"))
 print("seed rows:", pq.ParquetFile(out / "seed_90d.parquet").metadata.num_rows)
 print("state rows:", pq.ParquetFile(out / "state.parquet").metadata.num_rows)
 PY
-Test
+
+## Test
+```bash
 pytest -q
-Quick verification
+```
+
+## Quick verification
+```bash
 mtg-tracker --help
 pytest -q
 ```
