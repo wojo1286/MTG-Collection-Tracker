@@ -5,6 +5,7 @@ import lzma
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from mtg_tracker.seed import (
     SEED_COLUMNS,
@@ -12,6 +13,7 @@ from mtg_tracker.seed import (
     build_state_window,
     extract_seed_prices,
     run_seed,
+    validate_mapped_uuids_in_allprices,
 )
 
 
@@ -72,6 +74,50 @@ def test_build_scryfall_to_uuid_map_counts_unmapped(tmp_path: Path) -> None:
     mapping = build_scryfall_to_uuid_map(identifiers_path, {"sid-1", "sid-2", "sid-missing"})
 
     assert mapping == {"sid-1": "uuid-1", "sid-2": "uuid-2"}
+
+
+def test_build_scryfall_to_uuid_map_uses_allidentifiers_uuid_key(tmp_path: Path) -> None:
+    identifiers_path = tmp_path / "AllIdentifiers.json"
+    payload = {
+        "data": {
+            "4c77f172-2115-50e1-a049-8f1675f52d8d": {
+                "identifiers": {
+                    "scryfallId": "0001c639-8bd0-426f-89cb-4ca61f3cc054",
+                }
+            }
+        }
+    }
+    identifiers_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    mapping = build_scryfall_to_uuid_map(
+        identifiers_path,
+        {"0001c639-8bd0-426f-89cb-4ca61f3cc054"},
+    )
+
+    assert mapping == {
+        "0001c639-8bd0-426f-89cb-4ca61f3cc054": "4c77f172-2115-50e1-a049-8f1675f52d8d"
+    }
+
+
+def test_validate_mapped_uuids_in_allprices_raises_for_zero_matches(tmp_path: Path) -> None:
+    allprices_path = tmp_path / "AllPrices.json"
+    _write_allprices(allprices_path)
+
+    with pytest.raises(ValueError, match="Sanity check failed"):
+        validate_mapped_uuids_in_allprices(
+            allprices_path=allprices_path,
+            mapped_uuids=["0001c639-8bd0-426f-89cb-4ca61f3cc054"],
+        )
+
+
+def test_validate_mapped_uuids_in_allprices_accepts_match(tmp_path: Path) -> None:
+    allprices_path = tmp_path / "AllPrices.json"
+    _write_allprices(allprices_path)
+
+    validate_mapped_uuids_in_allprices(
+        allprices_path=allprices_path,
+        mapped_uuids=["uuid-2", "missing-uuid"],
+    )
 
 
 def test_extract_seed_prices_filters_and_no_forward_fill(tmp_path: Path, monkeypatch) -> None:

@@ -79,6 +79,11 @@ def run_seed(
     mapped_df = key_df.dropna(subset=["mtgjson_uuid"]).copy()
     mapped_df["mtgjson_uuid"] = mapped_df["mtgjson_uuid"].astype(str)
 
+    validate_mapped_uuids_in_allprices(
+        allprices_path=allprices_path,
+        mapped_uuids=mapped_df["mtgjson_uuid"].tolist(),
+    )
+
     missing_mapping = sorted(unique_scryfall_ids - set(sid_to_uuid.keys()))
 
     prices_df = extract_seed_prices(
@@ -159,19 +164,12 @@ def build_scryfall_to_uuid_map(
     for uuid, payload in iter_data_kv_items(identifiers_path):
         if not isinstance(payload, dict):
             continue
-        identifiers = payload.get("identifiers")
-        if not isinstance(identifiers, dict):
-            continue
+        for sid in _iter_scryfall_ids(payload):
+            if sid in collection_scryfall_ids:
+                sid_to_uuid[sid] = str(uuid)
 
-        scryfall_id = identifiers.get("scryfallId")
-        if not scryfall_id:
-            continue
-
-        sid = str(scryfall_id)
-        if sid in collection_scryfall_ids:
-            sid_to_uuid[sid] = str(uuid)
-            if len(sid_to_uuid) == len(collection_scryfall_ids):
-                break
+        if len(sid_to_uuid) == len(collection_scryfall_ids):
+            break
 
     return sid_to_uuid
 
@@ -244,6 +242,27 @@ def extract_seed_prices(
     return seed_df.sort_values(["scryfall_id", "finish", "date"]).reset_index(drop=True)
 
 
+def validate_mapped_uuids_in_allprices(
+    allprices_path: Path, mapped_uuids: list[str], sample_size: int = 20
+) -> None:
+    """Guard against wrong identifier mapping by validating sampled UUIDs in AllPrices."""
+
+    sampled = list(dict.fromkeys(str(uuid) for uuid in mapped_uuids if uuid))[:sample_size]
+    if not sampled:
+        return
+
+    sampled_set = set(sampled)
+    for uuid, _ in iter_data_kv_items(allprices_path):
+        if uuid in sampled_set:
+            return
+
+    raise ValueError(
+        "Sanity check failed: none of the sampled mapped MTGJSON UUIDs were found in "
+        "AllPrices data keys. Mapping likely returned non-MTGJSON IDs (for example "
+        "Scryfall IDs) or AllIdentifiers and AllPrices are from mismatched versions."
+    )
+
+
 def build_state_window(seed_df: pd.DataFrame, state_days: int) -> pd.DataFrame:
     """Trim seed rows to each key's most recent state_days dates."""
 
@@ -306,6 +325,24 @@ def _extract_price_series(
         return series
 
     return None
+
+
+def _iter_scryfall_ids(payload: Any) -> Iterator[str]:
+    """Yield candidate scryfall IDs from identifier payload variants."""
+
+    if not isinstance(payload, dict):
+        return
+
+    identifiers = payload.get("identifiers")
+    if isinstance(identifiers, dict):
+        scryfall_id = identifiers.get("scryfallId")
+        if scryfall_id:
+            yield str(scryfall_id)
+
+    for key in ("scryfallId", "scryfall_id"):
+        value = payload.get(key)
+        if value:
+            yield str(value)
 
 
 def _to_positive_float(value: Any) -> float | None:
