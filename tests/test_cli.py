@@ -57,33 +57,18 @@ def test_seed_help_includes_phase_2_arguments(capsys) -> None:
     assert "--out-dir" in captured.out
 
 
-def test_seed_command_with_tiny_fixtures(tmp_path: Path, monkeypatch) -> None:
+def test_seed_command_with_tiny_fixtures(tmp_path: Path) -> None:
     collection_path = tmp_path / "collection.parquet"
-    pd.DataFrame(
+    ingest_rc = main(
         [
-            {
-                "scryfall_id": "sid-1",
-                "finish": "normal",
-                "qty": 2,
-                "set_code": "set1",
-                "collector_number": "1",
-            },
-            {
-                "scryfall_id": "sid-2",
-                "finish": "foil",
-                "qty": 1,
-                "set_code": "set2",
-                "collector_number": "2",
-            },
+            "ingest",
+            "--input",
+            "tests/fixtures/manabox_sample.tsv",
+            "--out",
+            str(collection_path),
         ]
-    ).to_parquet(collection_path, index=False)
-
-    class _FakeDate:
-        @classmethod
-        def today(cls):
-            return pd.Timestamp("2024-12-05").date()
-
-    monkeypatch.setattr("mtg_tracker.seed.date", _FakeDate)
+    )
+    assert ingest_rc == 0
 
     out_dir = tmp_path / "seed"
     rc = main(
@@ -98,7 +83,7 @@ def test_seed_command_with_tiny_fixtures(tmp_path: Path, monkeypatch) -> None:
             "--out-dir",
             str(out_dir),
             "--state-days",
-            "1",
+            "2",
         ]
     )
 
@@ -106,3 +91,8 @@ def test_seed_command_with_tiny_fixtures(tmp_path: Path, monkeypatch) -> None:
     assert (out_dir / "seed_90d.parquet").exists()
     assert (out_dir / "state.parquet").exists()
     assert (out_dir / "meta.json").exists()
+
+    meta = pd.read_json(out_dir / "meta.json", typ="series")
+    assert int(meta["num_collection_keys"]) > 0
+    assert int(meta["num_mapped_keys"]) > 0
+    assert int(meta["seed_rows"]) > 0

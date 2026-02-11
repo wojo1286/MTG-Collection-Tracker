@@ -75,9 +75,14 @@ pytest -q
 
 ## Fixture-based seed smoke test
 
-For a tiny local seed run, use the bundled fixtures:
+For a tiny local seed run with non-zero mapped and seed rows, first build a collection from the sample TSV,
+then run `seed` with the bundled tiny MTGJSON fixtures:
 
 ```bash
+python -m mtg_tracker ingest \
+  --input tests/fixtures/manabox_sample.tsv \
+  --out tmp/collection.parquet
+
 python -m mtg_tracker seed \
   --collection tmp/collection.parquet \
   --allprices tests/fixtures/allprices_tiny.json \

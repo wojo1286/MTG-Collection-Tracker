@@ -1,18 +1,18 @@
 {
   "data": {
-    "uuid-1": {
+    "uuid-ancient-copper-dragon": {
       "identifiers": {
-        "scryfallId": "sid-1"
+        "scryfallId": "e12d32a7-60b4-4e49-b279-970b170c1a9c"
       }
     },
-    "uuid-2": {
+    "uuid-empty-city-ruse": {
       "identifiers": {
-        "scryfallId": "sid-2"
+        "scryfallId": "4d37c84c-80e5-453d-bd2e-4f77ff864c89"
       }
     },
-    "uuid-3": {
+    "uuid-atraxa": {
       "identifiers": {
-        "scryfallId": "sid-3"
+        "scryfallId": "bd0d5a0c-5dec-439c-b037-9d17dda5ead3"
       }
     }
   }
