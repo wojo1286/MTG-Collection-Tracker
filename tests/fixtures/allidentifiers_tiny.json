@@ -1,0 +1,19 @@
+{
+  "data": {
+    "uuid-1": {
+      "identifiers": {
+        "scryfallId": "sid-1"
+      }
+    },
+    "uuid-2": {
+      "identifiers": {
+        "scryfallId": "sid-2"
+      }
+    },
+    "uuid-3": {
+      "identifiers": {
+        "scryfallId": "sid-3"
+      }
+    }
+  }
+}

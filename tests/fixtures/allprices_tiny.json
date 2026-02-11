@@ -1,0 +1,32 @@
+{
+  "data": {
+    "uuid-1": {
+      "paper": {
+        "tcgplayer": {
+          "market": {
+            "2099-12-01": 2.25,
+            "2099-12-02": 2.5
+          }
+        }
+      }
+    },
+    "uuid-2": {
+      "paper": {
+        "tcgplayer": {
+          "market": {
+            "2099-12-01": 5.0
+          }
+        }
+      }
+    },
+    "uuid-unused": {
+      "paper": {
+        "tcgplayer": {
+          "market": {
+            "2099-12-01": 999.0
+          }
+        }
+      }
+    }
+  }
+}

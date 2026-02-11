@@ -73,6 +73,18 @@ pytest -q
 - `data/` is for real/private files and is gitignored.
 - `tmp/` is for scratch outputs and is gitignored.
 
+## Fixture-based seed smoke test
+
+For a tiny local seed run, use the bundled fixtures:
+
+```bash
+python -m mtg_tracker seed \
+  --collection tmp/collection.parquet \
+  --allprices tests/fixtures/allprices_tiny.json \
+  --identifiers tests/fixtures/allidentifiers_tiny.json \
+  --out-dir tmp/seed_test
+```
+
 ## Quick verification
 
 ```bash
