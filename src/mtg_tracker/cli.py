@@ -11,6 +11,7 @@ from pathlib import Path
 from mtg_tracker.config import load_config
 from mtg_tracker.ingest import ingest_manabox_csv
 from mtg_tracker.logging_utils import setup_logging
+from mtg_tracker.seed import run_seed
 from mtg_tracker.state import build_state_backend
 
 LOGGER = logging.getLogger(__name__)
@@ -31,10 +32,14 @@ def main(argv: list[str] | None = None) -> int:
         run_ingest(args)
         return 0
 
-    if args.command in {"seed", "daily"}:
+    if args.command == "seed":
+        run_seed_command(args)
+        return 0
+
+    if args.command == "daily":
         backend = build_state_backend(config)
-        LOGGER.info("Running '%s' stub with backend=%s", args.command, type(backend).__name__)
-        LOGGER.info("Phase 0 only: '%s' is intentionally not implemented.", args.command)
+        LOGGER.info("Running 'daily' stub with backend=%s", type(backend).__name__)
+        LOGGER.info("Phase 0 only: 'daily' is intentionally not implemented.")
         return 0
 
     parser.print_help()
@@ -58,7 +63,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also write a collection CSV next to --out for debugging",
     )
 
-    subparsers.add_parser("seed", help="Phase 2 stub: create initial state from AllPrices")
+    seed_parser = subparsers.add_parser(
+        "seed",
+        help="Create initial 90-day seed and rolling state for collection keys",
+    )
+    seed_parser.add_argument("--collection", required=True, help="Path to collection parquet")
+    seed_parser.add_argument(
+        "--allprices",
+        required=True,
+        help="Path to AllPrices.json or AllPrices.json.xz",
+    )
+    seed_parser.add_argument(
+        "--identifiers",
+        required=True,
+        help="Path to AllIdentifiers.json or AllIdentifiers.json.xz",
+    )
+    seed_parser.add_argument("--out-dir", required=True, help="Output directory for seed artifacts")
+    seed_parser.add_argument(
+        "--state-days",
+        type=int,
+        default=14,
+        help="Number of recent days retained in state.parquet (default: 14)",
+    )
+    seed_parser.add_argument("--provider", default="tcgplayer", help="Pricing provider")
+    seed_parser.add_argument("--price-type", default="market", help="Price type")
+    seed_parser.add_argument("--market", default="paper", help="Market scope")
+
     subparsers.add_parser("daily", help="Phase 3 stub: update daily prices and detect spikes")
 
     report_parser = subparsers.add_parser("report", help="Generate a no-op report artifact")
@@ -95,4 +125,17 @@ def run_ingest(args: argparse.Namespace) -> None:
         input_path=Path(args.input),
         output_path=Path(args.out),
         debug_csv=bool(args.debug_csv),
+    )
+
+
+def run_seed_command(args: argparse.Namespace) -> None:
+    run_seed(
+        collection_path=Path(args.collection),
+        allprices_path=Path(args.allprices),
+        identifiers_path=Path(args.identifiers),
+        out_dir=Path(args.out_dir),
+        state_days=int(args.state_days),
+        provider=str(args.provider),
+        price_type=str(args.price_type),
+        market=str(args.market),
     )

@@ -1,0 +1,19 @@
+{
+  "data": {
+    "uuid-ancient-copper-dragon": {
+      "identifiers": {
+        "scryfallId": "e12d32a7-60b4-4e49-b279-970b170c1a9c"
+      }
+    },
+    "uuid-empty-city-ruse": {
+      "identifiers": {
+        "scryfallId": "4d37c84c-80e5-453d-bd2e-4f77ff864c89"
+      }
+    },
+    "uuid-atraxa": {
+      "identifiers": {
+        "scryfallId": "bd0d5a0c-5dec-439c-b037-9d17dda5ead3"
+      }
+    }
+  }
+}
