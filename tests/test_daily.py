@@ -10,7 +10,9 @@ import pandas as pd
 from mtg_tracker.cli import main
 from mtg_tracker.daily import (
     DailyConfig,
+    build_spike_summary,
     detect_spikes,
+    enrich_spikes_with_collection,
     extract_today_prices,
     run_daily,
     truncate_state_dates,
@@ -198,6 +200,7 @@ def test_daily_smoke_updates_state_and_reports(tmp_path: Path) -> None:
     assert result.state_rows > 0
     assert state_out_path.exists()
     assert result.spikes_csv_path.exists()
+    assert result.spikes_summary_csv_path.exists()
     assert result.spikes_md_path.exists()
 
     state_out = pd.read_parquet(state_out_path)
@@ -208,6 +211,12 @@ def test_daily_smoke_updates_state_and_reports(tmp_path: Path) -> None:
     assert not spikes.empty
     assert set(spikes["scryfall_id"]) == {"sid-1"}
     assert set(spikes["window_days"]) == {1, 3}
+    assert {"qty", "set_code", "collector_number"}.issubset(spikes.columns)
+
+    summary = pd.read_csv(result.spikes_summary_csv_path)
+    assert len(summary) == 1
+    assert summary.iloc[0]["scryfall_id"] == "sid-1"
+    assert int(summary.iloc[0]["best_window_days"]) in {1, 3}
 
 
 def test_extract_today_prices_coerces_decimal_strings(tmp_path: Path) -> None:
@@ -387,3 +396,117 @@ def test_daily_command_smoke(tmp_path: Path) -> None:
 
     assert rc == 0
     assert (tmp_path / "state.parquet").exists()
+
+
+def test_build_spike_summary_picks_best_row_per_printing() -> None:
+    spikes_df = pd.DataFrame(
+        [
+            {
+                "scryfall_id": "sid-1",
+                "finish": "normal",
+                "mtgjson_uuid": "u1",
+                "qty": 1,
+                "set_code": "abc",
+                "collector_number": "11",
+                "today_date": "2026-01-08",
+                "today_price": 12.0,
+                "window_days": 3,
+                "past_date": "2026-01-05",
+                "past_price": 6.0,
+                "abs_change": 6.0,
+                "pct_change": 1.0,
+            },
+            {
+                "scryfall_id": "sid-1",
+                "finish": "normal",
+                "mtgjson_uuid": "u1",
+                "qty": 1,
+                "set_code": "abc",
+                "collector_number": "11",
+                "today_date": "2026-01-08",
+                "today_price": 10.0,
+                "window_days": 1,
+                "past_date": "2026-01-07",
+                "past_price": 5.0,
+                "abs_change": 5.0,
+                "pct_change": 1.0,
+            },
+            {
+                "scryfall_id": "sid-2",
+                "finish": "foil",
+                "mtgjson_uuid": "u2",
+                "qty": 2,
+                "set_code": "def",
+                "collector_number": "22",
+                "today_date": "2026-01-08",
+                "today_price": 9.0,
+                "window_days": 7,
+                "past_date": "2026-01-01",
+                "past_price": 6.0,
+                "abs_change": 3.0,
+                "pct_change": 0.5,
+            },
+        ]
+    )
+
+    summary = build_spike_summary(spikes_df)
+
+    assert len(summary) == 2
+    sid_1 = summary[summary["scryfall_id"] == "sid-1"].iloc[0]
+    assert int(sid_1["best_window_days"]) == 3
+    assert float(sid_1["abs_change"]) == 6.0
+
+
+def test_enrich_spikes_with_collection_adds_metadata() -> None:
+    spikes_df = pd.DataFrame(
+        [
+            {
+                "scryfall_id": "sid-1",
+                "finish": "normal",
+                "mtgjson_uuid": "u1",
+                "qty": pd.NA,
+                "today_date": "2026-01-08",
+                "today_price": 12.0,
+                "window_days": 1,
+                "past_date": "2026-01-07",
+                "past_price": 10.0,
+                "abs_change": 2.0,
+                "pct_change": 0.2,
+            },
+            {
+                "scryfall_id": "sid-miss",
+                "finish": "foil",
+                "mtgjson_uuid": "u-miss",
+                "qty": pd.NA,
+                "today_date": "2026-01-08",
+                "today_price": 8.0,
+                "window_days": 1,
+                "past_date": "2026-01-07",
+                "past_price": 6.0,
+                "abs_change": 2.0,
+                "pct_change": 0.333,
+            },
+        ]
+    )
+    collection_meta_df = pd.DataFrame(
+        [
+            {
+                "scryfall_id": "sid-1",
+                "finish": "normal",
+                "qty": 3,
+                "set_code": "set",
+                "collector_number": "101",
+            }
+        ]
+    )
+
+    enriched = enrich_spikes_with_collection(spikes_df, collection_meta_df)
+
+    matched = enriched[enriched["scryfall_id"] == "sid-1"].iloc[0]
+    assert int(matched["qty"]) == 3
+    assert matched["set_code"] == "set"
+    assert matched["collector_number"] == "101"
+
+    missed = enriched[enriched["scryfall_id"] == "sid-miss"].iloc[0]
+    assert pd.isna(missed["set_code"])
+    assert pd.isna(missed["collector_number"])
