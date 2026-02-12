@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import lzma
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
 
 from mtg_tracker.seed import (
     SEED_COLUMNS,
+    _coerce_price,
     build_scryfall_to_uuid_map,
     build_state_window,
     extract_seed_prices,
@@ -64,6 +66,60 @@ def _write_allprices(path: Path) -> None:
         }
     }
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_coerce_price_accepts_decimal_and_numeric_inputs() -> None:
+    assert _coerce_price(Decimal("1.23")) == 1.23
+    assert _coerce_price(2) == 2.0
+    assert _coerce_price(2.5) == 2.5
+    assert _coerce_price("3.75") == 3.75
+    assert _coerce_price(" 4.10 ") == 4.1
+    assert _coerce_price("not-a-number") is None
+
+
+def test_extract_seed_prices_accepts_decimal_values_and_finish_series(monkeypatch) -> None:
+    mapped_keys_df = pd.DataFrame(
+        [{"scryfall_id": "sid-1", "finish": "normal", "mtgjson_uuid": "uuid-1"}]
+    )
+
+    class _FakeDate:
+        @classmethod
+        def today(cls):
+            return pd.Timestamp("2024-12-05").date()
+
+    monkeypatch.setattr("mtg_tracker.seed.date", _FakeDate)
+
+    def _fake_iter_data_kv_items(_path: Path):
+        yield (
+            "uuid-1",
+            {
+                "paper": {
+                    "tcgplayer": {
+                        "retail": {
+                            "normal": {
+                                "2024-12-01": Decimal("1.23"),
+                                "2024-12-02": Decimal("1.25"),
+                            }
+                        }
+                    }
+                }
+            },
+        )
+
+    monkeypatch.setattr("mtg_tracker.seed.iter_data_kv_items", _fake_iter_data_kv_items)
+
+    seed_df = extract_seed_prices(
+        allprices_path=Path("unused.json"),
+        mapped_keys_df=mapped_keys_df,
+        provider="tcgplayer",
+        price_type="retail",
+        market="paper",
+        days=90,
+    )
+
+    assert len(seed_df) == 2
+    assert seed_df["price"].dtype.kind == "f"
+    assert set(seed_df["price"].tolist()) == {1.23, 1.25}
 
 
 def test_build_scryfall_to_uuid_map_counts_unmapped(tmp_path: Path) -> None:

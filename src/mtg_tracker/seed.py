@@ -8,6 +8,7 @@ import lzma
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -228,23 +229,23 @@ def extract_seed_prices(
             continue
 
         found_uuids.add(uuid_str)
-        series = _extract_price_series(
-            payload, market=market, provider=provider, price_type=price_type
-        )
-        if not isinstance(series, dict):
-            continue
-
         keys_for_uuid = uuid_to_keys[uuid_str]
-        for day_str, raw_price in series.items():
-            parsed_day = _parse_price_date(day_str)
-            if not parsed_day or parsed_day < min_date:
+        for scryfall_id, finish in keys_for_uuid:
+            series = _extract_price_series(
+                payload, market=market, provider=provider, price_type=price_type, finish=finish
+            )
+            if not isinstance(series, dict):
                 continue
 
-            price = _to_positive_float(raw_price)
-            if price is None:
-                continue
+            for day_str, raw_price in series.items():
+                parsed_day = _parse_price_date(day_str)
+                if not parsed_day or parsed_day < min_date:
+                    continue
 
-            for scryfall_id, finish in keys_for_uuid:
+                price = _to_positive_float(raw_price)
+                if price is None:
+                    continue
+
                 output_rows.append(
                     {
                         "date": day_str,
@@ -309,7 +310,7 @@ def open_json_stream(path: Path) -> BinaryIO:
 
 
 def _extract_price_series(
-    payload: Any, market: str, provider: str, price_type: str
+    payload: Any, market: str, provider: str, price_type: str, finish: str
 ) -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         return None
@@ -322,9 +323,16 @@ def _extract_price_series(
     if not isinstance(provider_node, dict):
         return None
 
-    series = provider_node.get(price_type)
-    if isinstance(series, dict):
-        return series
+    price_node = provider_node.get(price_type)
+    if not isinstance(price_node, dict):
+        return None
+
+    if _is_date_series(price_node):
+        return price_node
+
+    finish_node = price_node.get(str(finish))
+    if isinstance(finish_node, dict) and _is_date_series(finish_node):
+        return finish_node
 
     return None
 
@@ -338,15 +346,33 @@ def _extract_scryfall_id(identifiers: dict[str, Any]) -> str | None:
 
 
 def _to_positive_float(value: Any) -> float | None:
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError):
+    parsed = _coerce_price(value)
+    if parsed is None or parsed <= 0:
         return None
-
-    if parsed <= 0:
-        return None
-
     return parsed
+
+
+def _coerce_price(value: Any) -> float | None:
+    if isinstance(value, Decimal):
+        return float(value)
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            return None
+        try:
+            return float(Decimal(candidate))
+        except (InvalidOperation, ValueError):
+            return None
+
+    return None
+
+
+def _is_date_series(series: dict[str, Any]) -> bool:
+    return any(_parse_price_date(key) is not None for key in series)
 
 
 def _parse_price_date(value: Any) -> date | None:
