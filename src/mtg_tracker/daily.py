@@ -35,6 +35,7 @@ SPIKE_COLUMNS = [
     "pct_change",
 ]
 SUMMARY_COLUMNS = [
+    "name",
     "scryfall_id",
     "finish",
     "mtgjson_uuid",
@@ -160,10 +161,10 @@ def _build_collection_meta_frame(collection_df: pd.DataFrame) -> pd.DataFrame:
     required = ["scryfall_id", "finish"]
     if not set(required).issubset(collection_df.columns):
         return pd.DataFrame(
-            columns=["scryfall_id", "finish", "qty", "set_code", "collector_number"]
+            columns=["scryfall_id", "finish", "qty", "name", "set_code", "collector_number"]
         )
 
-    columns = ["scryfall_id", "finish", "qty", "set_code", "collector_number"]
+    columns = ["scryfall_id", "finish", "qty", "name", "set_code", "collector_number"]
     out = collection_df.reindex(columns=columns).copy()
     out["scryfall_id"] = out["scryfall_id"].astype(str)
     out["finish"] = out["finish"].astype(str)
@@ -174,11 +175,13 @@ def _build_collection_meta_frame(collection_df: pd.DataFrame) -> pd.DataFrame:
         out.groupby(["scryfall_id", "finish"], as_index=False)
         .agg(
             qty=("qty", "sum"),
+            name=("name", "first"),
             set_code=("set_code", "first"),
             collector_number=("collector_number", "first"),
         )
         .assign(
             qty=lambda df: df["qty"].where(df["qty"].notna(), pd.NA),
+            name=lambda df: df["name"].astype("string"),
             set_code=lambda df: df["set_code"].astype("string"),
             collector_number=lambda df: df["collector_number"].astype("string"),
         )
@@ -191,7 +194,7 @@ def enrich_spikes_with_collection(
 ) -> pd.DataFrame:
     if spikes_df.empty:
         empty = spikes_df.copy()
-        for column in ("set_code", "collector_number"):
+        for column in ("name", "set_code", "collector_number"):
             if column not in empty.columns:
                 empty[column] = pd.Series(dtype="string")
         return empty
@@ -202,7 +205,7 @@ def enrich_spikes_with_collection(
         how="left",
         suffixes=("", "_collection"),
     )
-    for column in ("qty", "set_code", "collector_number"):
+    for column in ("qty", "name", "set_code", "collector_number"):
         if column not in enriched.columns:
             enriched[column] = pd.NA
 
@@ -213,6 +216,7 @@ def enrich_spikes_with_collection(
         enriched = enriched.drop(columns=drop_columns)
 
     ordered_columns = [
+        "name",
         "scryfall_id",
         "finish",
         "mtgjson_uuid",
@@ -504,16 +508,17 @@ def render_spikes_markdown(
 
     top = summary_df.head(15)
     lines = [
-        "| set_code | collector_number | finish | qty | today_price | "
+        "| name | set_code | collector_number | finish | qty | today_price | "
         "past_price | best_window_days | abs_change | pct_change |",
-        "|---|---:|---|---:|---:|---:|---:|---:|---:|",
+        "|---|---|---:|---|---:|---:|---:|---:|---:|---:|",
     ]
     for row in top.itertuples(index=False):
         row_line = (
-            "| {set_code} | {collector_number} | {finish} | {qty} | "
+            "| {name} | {set_code} | {collector_number} | {finish} | {qty} | "
             "{today_price:.2f} | {past_price:.2f} | {best_window_days} | "
             "{abs_change:.2f} | {pct_change:.2%} |"
         ).format(
+            name="" if pd.isna(row.name) else row.name,
             set_code="" if pd.isna(row.set_code) else row.set_code,
             collector_number="" if pd.isna(row.collector_number) else row.collector_number,
             finish=row.finish,

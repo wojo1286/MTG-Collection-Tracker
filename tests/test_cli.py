@@ -39,6 +39,7 @@ def test_ingest_command_generates_collection_outputs(tmp_path: Path) -> None:
         "scryfall_id",
         "finish",
         "qty",
+        "name",
         "set_code",
         "collector_number",
     }

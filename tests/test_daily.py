@@ -79,6 +79,7 @@ def test_daily_smoke_updates_state_and_reports(tmp_path: Path) -> None:
                 "scryfall_id": "sid-1",
                 "finish": "normal",
                 "qty": 2,
+                "name": "Card One",
                 "set_code": "set",
                 "collector_number": "1",
                 "mtgjson_uuid": "uuid-1",
@@ -87,6 +88,7 @@ def test_daily_smoke_updates_state_and_reports(tmp_path: Path) -> None:
                 "scryfall_id": "sid-2",
                 "finish": "normal",
                 "qty": 1,
+                "name": "Card Two",
                 "set_code": "set",
                 "collector_number": "2",
                 "mtgjson_uuid": "uuid-2",
@@ -95,6 +97,7 @@ def test_daily_smoke_updates_state_and_reports(tmp_path: Path) -> None:
                 "scryfall_id": "sid-3",
                 "finish": "normal",
                 "qty": 3,
+                "name": "Named Card",
                 "set_code": "set",
                 "collector_number": "3",
                 "mtgjson_uuid": "uuid-3",
@@ -211,12 +214,17 @@ def test_daily_smoke_updates_state_and_reports(tmp_path: Path) -> None:
     assert not spikes.empty
     assert set(spikes["scryfall_id"]) == {"sid-1"}
     assert set(spikes["window_days"]) == {1, 3}
-    assert {"qty", "set_code", "collector_number"}.issubset(spikes.columns)
+    assert {"qty", "name", "set_code", "collector_number"}.issubset(spikes.columns)
+    assert set(spikes["name"]) == {"Card One"}
 
     summary = pd.read_csv(result.spikes_summary_csv_path)
     assert len(summary) == 1
     assert summary.iloc[0]["scryfall_id"] == "sid-1"
     assert int(summary.iloc[0]["best_window_days"]) in {1, 3}
+
+    markdown = result.spikes_md_path.read_text(encoding="utf-8")
+    assert "| name | set_code |" in markdown
+    assert "| Card One |" in markdown
 
 
 def test_extract_today_prices_coerces_decimal_strings(tmp_path: Path) -> None:
@@ -351,6 +359,7 @@ def test_daily_command_smoke(tmp_path: Path) -> None:
                 "scryfall_id": "sid-1",
                 "finish": "normal",
                 "qty": 2,
+                "name": "Card One",
                 "set_code": "set",
                 "collector_number": "1",
             }
@@ -406,6 +415,7 @@ def test_build_spike_summary_picks_best_row_per_printing() -> None:
                 "finish": "normal",
                 "mtgjson_uuid": "u1",
                 "qty": 1,
+                "name": "Alpha",
                 "set_code": "abc",
                 "collector_number": "11",
                 "today_date": "2026-01-08",
@@ -421,6 +431,7 @@ def test_build_spike_summary_picks_best_row_per_printing() -> None:
                 "finish": "normal",
                 "mtgjson_uuid": "u1",
                 "qty": 1,
+                "name": "Alpha",
                 "set_code": "abc",
                 "collector_number": "11",
                 "today_date": "2026-01-08",
@@ -436,6 +447,7 @@ def test_build_spike_summary_picks_best_row_per_printing() -> None:
                 "finish": "foil",
                 "mtgjson_uuid": "u2",
                 "qty": 2,
+                "name": "Beta",
                 "set_code": "def",
                 "collector_number": "22",
                 "today_date": "2026-01-08",
@@ -494,6 +506,7 @@ def test_enrich_spikes_with_collection_adds_metadata() -> None:
                 "scryfall_id": "sid-1",
                 "finish": "normal",
                 "qty": 3,
+                "name": "Card Three",
                 "set_code": "set",
                 "collector_number": "101",
             }
@@ -504,9 +517,11 @@ def test_enrich_spikes_with_collection_adds_metadata() -> None:
 
     matched = enriched[enriched["scryfall_id"] == "sid-1"].iloc[0]
     assert int(matched["qty"]) == 3
+    assert matched["name"] == "Card Three"
     assert matched["set_code"] == "set"
     assert matched["collector_number"] == "101"
 
     missed = enriched[enriched["scryfall_id"] == "sid-miss"].iloc[0]
+    assert pd.isna(missed["name"])
     assert pd.isna(missed["set_code"])
     assert pd.isna(missed["collector_number"])
