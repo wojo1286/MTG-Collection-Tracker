@@ -33,6 +33,14 @@ class Config:
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": {"level": "INFO"},
+    "daily": {
+        "state_days": 14,
+        "windows": [1, 3, 7],
+        "price_floor": 5.0,
+        "pct_threshold": 0.20,
+        "abs_min": 1.0,
+        "pct_override": 0.50,
+    },
     "state": {
         "backend": "local_path",
         "local_path": {

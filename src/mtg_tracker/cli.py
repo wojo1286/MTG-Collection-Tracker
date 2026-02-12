@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from mtg_tracker.config import load_config
+from mtg_tracker.daily import DailyConfig, run_daily
 from mtg_tracker.ingest import ingest_manabox_csv
 from mtg_tracker.logging_utils import setup_logging
 from mtg_tracker.seed import run_seed
-from mtg_tracker.state import build_state_backend
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,9 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "daily":
-        backend = build_state_backend(config)
-        LOGGER.info("Running 'daily' stub with backend=%s", type(backend).__name__)
-        LOGGER.info("Phase 0 only: 'daily' is intentionally not implemented.")
+        run_daily_command(args, config.raw)
         return 0
 
     parser.print_help()
@@ -89,7 +87,73 @@ def build_parser() -> argparse.ArgumentParser:
     seed_parser.add_argument("--price-type", default="market", help="Price type")
     seed_parser.add_argument("--market", default="paper", help="Market scope")
 
-    subparsers.add_parser("daily", help="Phase 3 stub: update daily prices and detect spikes")
+    daily_parser = subparsers.add_parser(
+        "daily", help="Update local rolling state, detect spikes, and write daily reports"
+    )
+    daily_parser.add_argument("--collection", required=True, help="Path to collection parquet")
+    daily_parser.add_argument(
+        "--allprices-today",
+        required=True,
+        help="Path to AllPricesToday.json or AllPricesToday.json.xz",
+    )
+    daily_parser.add_argument(
+        "--state-in",
+        default="data/state/state.parquet",
+        help="Input rolling state parquet path",
+    )
+    daily_parser.add_argument(
+        "--seed-state",
+        default="data/seed/state.parquet",
+        help="Seed state parquet path used when --state-in is missing",
+    )
+    daily_parser.add_argument(
+        "--state-out",
+        default="data/state/state.parquet",
+        help="Output rolling state parquet path",
+    )
+    daily_parser.add_argument(
+        "--report-dir", default="data/reports", help="Output directory for daily reports"
+    )
+    daily_parser.add_argument("--market", default="paper", help="Market scope")
+    daily_parser.add_argument("--provider", default="tcgplayer", help="Pricing provider")
+    daily_parser.add_argument("--price-type", default="retail", help="Price type")
+    daily_parser.add_argument(
+        "--state-days",
+        type=int,
+        default=14,
+        help="Number of unique dates retained in rolling state",
+    )
+    daily_parser.add_argument(
+        "--windows",
+        nargs="+",
+        type=int,
+        default=[1, 3, 7],
+        help="Window sizes in days for spike checks",
+    )
+    daily_parser.add_argument(
+        "--price-floor",
+        type=float,
+        default=5.0,
+        help="Minimum today price required for spike checks",
+    )
+    daily_parser.add_argument(
+        "--pct-threshold",
+        type=float,
+        default=0.20,
+        help="Base percent-change threshold",
+    )
+    daily_parser.add_argument(
+        "--abs-min",
+        type=float,
+        default=1.0,
+        help="Guardrail minimum absolute change",
+    )
+    daily_parser.add_argument(
+        "--pct-override",
+        type=float,
+        default=0.50,
+        help="Guardrail percent override",
+    )
 
     report_parser = subparsers.add_parser("report", help="Generate a no-op report artifact")
     report_parser.add_argument(
@@ -138,4 +202,36 @@ def run_seed_command(args: argparse.Namespace) -> None:
         provider=str(args.provider),
         price_type=str(args.price_type),
         market=str(args.market),
+    )
+
+
+def run_daily_command(args: argparse.Namespace, raw_config: dict[str, object]) -> None:
+    daily_defaults = raw_config.get("daily", {})
+    if not isinstance(daily_defaults, dict):
+        daily_defaults = {}
+
+    result = run_daily(
+        DailyConfig(
+            collection_path=Path(args.collection),
+            allprices_today_path=Path(args.allprices_today),
+            state_in_path=Path(args.state_in),
+            seed_state_path=Path(args.seed_state),
+            state_out_path=Path(args.state_out),
+            report_dir=Path(args.report_dir),
+            market=str(args.market),
+            provider=str(args.provider),
+            price_type=str(args.price_type),
+            state_days=int(daily_defaults.get("state_days", args.state_days)),
+            windows=tuple(int(w) for w in daily_defaults.get("windows", args.windows)),
+            price_floor=float(daily_defaults.get("price_floor", args.price_floor)),
+            pct_threshold=float(daily_defaults.get("pct_threshold", args.pct_threshold)),
+            abs_min=float(daily_defaults.get("abs_min", args.abs_min)),
+            pct_override=float(daily_defaults.get("pct_override", args.pct_override)),
+        )
+    )
+    LOGGER.info(
+        "Daily run complete: date=%s state_rows=%d spikes=%d",
+        result.today_date,
+        result.state_rows,
+        result.spike_rows,
     )
