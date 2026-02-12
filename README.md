@@ -34,7 +34,7 @@ Subcommands:
 
 - 'ingest' (Phase 1: ManaBox → normalized collection parquet)
 - 'seed' (Phase 2: build 90-day seed + rolling state from MTGJSON)
-- 'daily' (Phase 3 stub)
+- 'daily' (Phase 3 local state: update + spike detection + reports)
 - 'report' (creates a dummy report artifact)
 
 Note: Most workflows assume the editable install from scripts/bootstrap.sh so mtg-tracker is available.
@@ -121,3 +121,35 @@ pytest -q
 ```makefile
 ::contentReference[oaicite:0]{index=0}
 ```
+
+
+## Phase 3: Daily local update usage
+
+Run daily update using local state files (gitignored paths):
+
+```bash
+mtg-tracker daily \
+  --collection data/out/collection.parquet \
+  --allprices-today downloads/AllPricesToday.json.xz \
+  --state-in data/state/state.parquet \
+  --seed-state data/seed/state.parquet \
+  --state-out data/state/state.parquet \
+  --report-dir data/reports \
+  --market paper --provider tcgplayer --price-type retail \
+  --state-days 14 \
+  --windows 1 3 7 \
+  --price-floor 5.00 \
+  --pct-threshold 0.20 \
+  --abs-min 1.00 \
+  --pct-override 0.50
+```
+
+Outputs:
+- `data/state/state.parquet` with rolling local state for the last N unique dates.
+- `data/reports/spikes_YYYY-MM-DD.csv` with spike candidates.
+- `data/reports/spikes_YYYY-MM-DD.md` markdown summary (UTC date).
+
+Behavior notes:
+- If `--state-in` does not exist, `--seed-state` is used to initialize state.
+- Missing prices are not forward-filled; spike windows are skipped if today/past prices are missing.
+- Guardrail: spike promotion requires `abs_change >= abs_min` OR `pct_change >= pct_override`.
