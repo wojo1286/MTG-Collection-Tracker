@@ -12,6 +12,7 @@ from mtg_tracker.seed import (
     build_state_window,
     extract_seed_prices,
     run_seed,
+    validate_uuid_mapping_against_allprices,
 )
 
 
@@ -72,6 +73,23 @@ def test_build_scryfall_to_uuid_map_counts_unmapped(tmp_path: Path) -> None:
     mapping = build_scryfall_to_uuid_map(identifiers_path, {"sid-1", "sid-2", "sid-missing"})
 
     assert mapping == {"sid-1": "uuid-1", "sid-2": "uuid-2"}
+
+
+def test_build_scryfall_to_uuid_map_uses_top_level_uuid_key(tmp_path: Path) -> None:
+    identifiers_path = tmp_path / "AllIdentifiers.json"
+    payload = {
+        "data": {
+            "mtgjson-uuid-1": {
+                "uuid": "scryfall-uuid-1",
+                "identifiers": {"scryfallId": "scryfall-uuid-1"},
+            }
+        }
+    }
+    identifiers_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    mapping = build_scryfall_to_uuid_map(identifiers_path, {"scryfall-uuid-1"})
+
+    assert mapping == {"scryfall-uuid-1": "mtgjson-uuid-1"}
 
 
 def test_extract_seed_prices_filters_and_no_forward_fill(tmp_path: Path, monkeypatch) -> None:
@@ -219,3 +237,15 @@ def test_run_seed_writes_outputs_and_schema_with_xz_inputs(tmp_path: Path, monke
     assert meta["num_collection_keys"] == 3
     assert meta["num_mapped_keys"] == 2
     assert meta["num_priced_keys"] == 2
+
+
+def test_validate_uuid_mapping_against_allprices_raises_when_no_key_match(tmp_path: Path) -> None:
+    allprices_path = tmp_path / "AllPrices.json"
+    _write_allprices(allprices_path)
+
+    try:
+        validate_uuid_mapping_against_allprices(allprices_path, ["not-a-price-uuid"])
+    except ValueError as exc:
+        assert "Mapped MTGJSON UUIDs not found in AllPrices keyspace" in str(exc)
+    else:
+        raise AssertionError("expected validation to fail when no UUIDs exist in AllPrices")

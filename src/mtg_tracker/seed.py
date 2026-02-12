@@ -81,6 +81,8 @@ def run_seed(
 
     missing_mapping = sorted(unique_scryfall_ids - set(sid_to_uuid.keys()))
 
+    validate_uuid_mapping_against_allprices(allprices_path, mapped_df["mtgjson_uuid"].tolist())
+
     prices_df = extract_seed_prices(
         allprices_path=allprices_path,
         mapped_keys_df=mapped_df,
@@ -156,24 +158,43 @@ def build_scryfall_to_uuid_map(
 
     sid_to_uuid: dict[str, str] = {}
 
-    for uuid, payload in iter_data_kv_items(identifiers_path):
+    for uuid_key, payload in iter_data_kv_items(identifiers_path):
         if not isinstance(payload, dict):
             continue
         identifiers = payload.get("identifiers")
         if not isinstance(identifiers, dict):
             continue
 
-        scryfall_id = identifiers.get("scryfallId")
+        scryfall_id = _extract_scryfall_id(identifiers)
         if not scryfall_id:
             continue
 
         sid = str(scryfall_id)
         if sid in collection_scryfall_ids:
-            sid_to_uuid[sid] = str(uuid)
+            sid_to_uuid[sid] = str(uuid_key)
             if len(sid_to_uuid) == len(collection_scryfall_ids):
                 break
 
     return sid_to_uuid
+
+
+def validate_uuid_mapping_against_allprices(
+    allprices_path: Path, mapped_uuids: list[str], sample_size: int = 50
+) -> None:
+    """Ensure mapped MTGJSON UUIDs align with AllPrices top-level keyspace."""
+
+    if not mapped_uuids:
+        return
+
+    sample_uuids = set(mapped_uuids[:sample_size])
+    for uuid_key, _ in iter_data_kv_items(allprices_path):
+        if uuid_key in sample_uuids:
+            return
+
+    raise ValueError(
+        "Mapped MTGJSON UUIDs not found in AllPrices keyspace. "
+        "Likely mapping bug or mismatched AllIdentifiers/AllPrices downloads."
+    )
 
 
 def extract_seed_prices(
@@ -305,6 +326,14 @@ def _extract_price_series(
     if isinstance(series, dict):
         return series
 
+    return None
+
+
+def _extract_scryfall_id(identifiers: dict[str, Any]) -> str | None:
+    for key in ("scryfallId", "scryfall_id", "scryfallID"):
+        value = identifiers.get(key)
+        if value:
+            return str(value)
     return None
 
 
