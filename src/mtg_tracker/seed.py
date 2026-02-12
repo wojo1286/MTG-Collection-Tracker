@@ -8,6 +8,7 @@ import lzma
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -80,6 +81,8 @@ def run_seed(
     mapped_df["mtgjson_uuid"] = mapped_df["mtgjson_uuid"].astype(str)
 
     missing_mapping = sorted(unique_scryfall_ids - set(sid_to_uuid.keys()))
+
+    validate_uuid_mapping_against_allprices(allprices_path, mapped_df["mtgjson_uuid"].tolist())
 
     prices_df = extract_seed_prices(
         allprices_path=allprices_path,
@@ -156,24 +159,43 @@ def build_scryfall_to_uuid_map(
 
     sid_to_uuid: dict[str, str] = {}
 
-    for uuid, payload in iter_data_kv_items(identifiers_path):
+    for uuid_key, payload in iter_data_kv_items(identifiers_path):
         if not isinstance(payload, dict):
             continue
         identifiers = payload.get("identifiers")
         if not isinstance(identifiers, dict):
             continue
 
-        scryfall_id = identifiers.get("scryfallId")
+        scryfall_id = _extract_scryfall_id(identifiers)
         if not scryfall_id:
             continue
 
         sid = str(scryfall_id)
         if sid in collection_scryfall_ids:
-            sid_to_uuid[sid] = str(uuid)
+            sid_to_uuid[sid] = str(uuid_key)
             if len(sid_to_uuid) == len(collection_scryfall_ids):
                 break
 
     return sid_to_uuid
+
+
+def validate_uuid_mapping_against_allprices(
+    allprices_path: Path, mapped_uuids: list[str], sample_size: int = 50
+) -> None:
+    """Ensure mapped MTGJSON UUIDs align with AllPrices top-level keyspace."""
+
+    if not mapped_uuids:
+        return
+
+    sample_uuids = set(mapped_uuids[:sample_size])
+    for uuid_key, _ in iter_data_kv_items(allprices_path):
+        if uuid_key in sample_uuids:
+            return
+
+    raise ValueError(
+        "Mapped MTGJSON UUIDs not found in AllPrices keyspace. "
+        "Likely mapping bug or mismatched AllIdentifiers/AllPrices downloads."
+    )
 
 
 def extract_seed_prices(
@@ -207,23 +229,23 @@ def extract_seed_prices(
             continue
 
         found_uuids.add(uuid_str)
-        series = _extract_price_series(
-            payload, market=market, provider=provider, price_type=price_type
-        )
-        if not isinstance(series, dict):
-            continue
-
         keys_for_uuid = uuid_to_keys[uuid_str]
-        for day_str, raw_price in series.items():
-            parsed_day = _parse_price_date(day_str)
-            if not parsed_day or parsed_day < min_date:
+        for scryfall_id, finish in keys_for_uuid:
+            series = _extract_price_series(
+                payload, market=market, provider=provider, price_type=price_type, finish=finish
+            )
+            if not isinstance(series, dict):
                 continue
 
-            price = _to_positive_float(raw_price)
-            if price is None:
-                continue
+            for day_str, raw_price in series.items():
+                parsed_day = _parse_price_date(day_str)
+                if not parsed_day or parsed_day < min_date:
+                    continue
 
-            for scryfall_id, finish in keys_for_uuid:
+                price = _to_positive_float(raw_price)
+                if price is None:
+                    continue
+
                 output_rows.append(
                     {
                         "date": day_str,
@@ -288,7 +310,7 @@ def open_json_stream(path: Path) -> BinaryIO:
 
 
 def _extract_price_series(
-    payload: Any, market: str, provider: str, price_type: str
+    payload: Any, market: str, provider: str, price_type: str, finish: str
 ) -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         return None
@@ -301,23 +323,56 @@ def _extract_price_series(
     if not isinstance(provider_node, dict):
         return None
 
-    series = provider_node.get(price_type)
-    if isinstance(series, dict):
-        return series
+    price_node = provider_node.get(price_type)
+    if not isinstance(price_node, dict):
+        return None
+
+    if _is_date_series(price_node):
+        return price_node
+
+    finish_node = price_node.get(str(finish))
+    if isinstance(finish_node, dict) and _is_date_series(finish_node):
+        return finish_node
 
     return None
 
 
+def _extract_scryfall_id(identifiers: dict[str, Any]) -> str | None:
+    for key in ("scryfallId", "scryfall_id", "scryfallID"):
+        value = identifiers.get(key)
+        if value:
+            return str(value)
+    return None
+
+
 def _to_positive_float(value: Any) -> float | None:
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError):
+    parsed = _coerce_price(value)
+    if parsed is None or parsed <= 0:
         return None
-
-    if parsed <= 0:
-        return None
-
     return parsed
+
+
+def _coerce_price(value: Any) -> float | None:
+    if isinstance(value, Decimal):
+        return float(value)
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            return None
+        try:
+            return float(Decimal(candidate))
+        except (InvalidOperation, ValueError):
+            return None
+
+    return None
+
+
+def _is_date_series(series: dict[str, Any]) -> bool:
+    return any(_parse_price_date(key) is not None for key in series)
 
 
 def _parse_price_date(value: Any) -> date | None:
