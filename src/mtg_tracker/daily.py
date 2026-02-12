@@ -34,6 +34,21 @@ SPIKE_COLUMNS = [
     "abs_change",
     "pct_change",
 ]
+SUMMARY_COLUMNS = [
+    "scryfall_id",
+    "finish",
+    "mtgjson_uuid",
+    "qty",
+    "set_code",
+    "collector_number",
+    "today_date",
+    "today_price",
+    "best_window_days",
+    "past_date",
+    "past_price",
+    "abs_change",
+    "pct_change",
+]
 
 
 @dataclass(frozen=True)
@@ -66,6 +81,7 @@ class DailyResult:
     spike_rows: int
     state_out_path: Path
     spikes_csv_path: Path
+    spikes_summary_csv_path: Path
     spikes_md_path: Path
 
 
@@ -74,7 +90,7 @@ def run_daily(config: DailyConfig) -> DailyResult:
 
     today_date = datetime.now(timezone.utc).date().isoformat()
     collection_df = pd.read_parquet(config.collection_path)
-    qty_df = _build_qty_frame(collection_df)
+    collection_meta_df = _build_collection_meta_frame(collection_df)
 
     prior_state = _load_prior_state(config.state_in_path, config.seed_state_path)
     today_prices = extract_today_prices(
@@ -91,7 +107,7 @@ def run_daily(config: DailyConfig) -> DailyResult:
 
     spikes_df = detect_spikes(
         state_df=truncated_state,
-        qty_df=qty_df,
+        qty_df=collection_meta_df[["scryfall_id", "finish", "qty"]],
         today_date=today_date,
         windows=config.windows,
         price_floor=config.price_floor,
@@ -105,11 +121,17 @@ def run_daily(config: DailyConfig) -> DailyResult:
 
     config.report_dir.mkdir(parents=True, exist_ok=True)
     spikes_csv_path = config.report_dir / f"spikes_{today_date}.csv"
+    spikes_summary_csv_path = config.report_dir / f"spikes_{today_date}_summary.csv"
     spikes_md_path = config.report_dir / f"spikes_{today_date}.md"
-    spikes_df.to_csv(spikes_csv_path, index=False)
+    detailed_spikes_df = enrich_spikes_with_collection(spikes_df, collection_meta_df)
+    summary_spikes_df = build_spike_summary(detailed_spikes_df)
+
+    detailed_spikes_df.to_csv(spikes_csv_path, index=False)
+    summary_spikes_df.to_csv(spikes_summary_csv_path, index=False)
     spikes_md_path.write_text(
         render_spikes_markdown(
-            spikes_df=spikes_df,
+            spikes_df=detailed_spikes_df,
+            summary_df=summary_spikes_df,
             today_date=today_date,
             windows=config.windows,
             price_floor=config.price_floor,
@@ -129,27 +151,96 @@ def run_daily(config: DailyConfig) -> DailyResult:
         spike_rows=len(spikes_df),
         state_out_path=config.state_out_path,
         spikes_csv_path=spikes_csv_path,
+        spikes_summary_csv_path=spikes_summary_csv_path,
         spikes_md_path=spikes_md_path,
     )
 
 
-def _build_qty_frame(collection_df: pd.DataFrame) -> pd.DataFrame:
-    if "qty" not in collection_df.columns:
-        return pd.DataFrame(columns=["scryfall_id", "finish", "qty"])
-
-    qty_df = (
-        collection_df[["scryfall_id", "finish", "qty"]]
-        .dropna(subset=["scryfall_id", "finish", "qty"])
-        .assign(
-            scryfall_id=lambda df: df["scryfall_id"].astype(str),
-            finish=lambda df: df["finish"].astype(str),
-            qty=lambda df: pd.to_numeric(df["qty"], errors="coerce"),
+def _build_collection_meta_frame(collection_df: pd.DataFrame) -> pd.DataFrame:
+    required = ["scryfall_id", "finish"]
+    if not set(required).issubset(collection_df.columns):
+        return pd.DataFrame(
+            columns=["scryfall_id", "finish", "qty", "set_code", "collector_number"]
         )
-        .dropna(subset=["qty"])
-        .groupby(["scryfall_id", "finish"], as_index=False)["qty"]
-        .sum()
+
+    columns = ["scryfall_id", "finish", "qty", "set_code", "collector_number"]
+    out = collection_df.reindex(columns=columns).copy()
+    out["scryfall_id"] = out["scryfall_id"].astype(str)
+    out["finish"] = out["finish"].astype(str)
+    out["qty"] = pd.to_numeric(out["qty"], errors="coerce")
+    out = out.dropna(subset=["scryfall_id", "finish"])
+
+    grouped = (
+        out.groupby(["scryfall_id", "finish"], as_index=False)
+        .agg(
+            qty=("qty", "sum"),
+            set_code=("set_code", "first"),
+            collector_number=("collector_number", "first"),
+        )
+        .assign(
+            qty=lambda df: df["qty"].where(df["qty"].notna(), pd.NA),
+            set_code=lambda df: df["set_code"].astype("string"),
+            collector_number=lambda df: df["collector_number"].astype("string"),
+        )
     )
-    return qty_df
+    return grouped
+
+
+def enrich_spikes_with_collection(
+    spikes_df: pd.DataFrame, collection_meta_df: pd.DataFrame
+) -> pd.DataFrame:
+    if spikes_df.empty:
+        empty = spikes_df.copy()
+        for column in ("set_code", "collector_number"):
+            if column not in empty.columns:
+                empty[column] = pd.Series(dtype="string")
+        return empty
+
+    enriched = spikes_df.merge(
+        collection_meta_df,
+        on=["scryfall_id", "finish"],
+        how="left",
+        suffixes=("", "_collection"),
+    )
+    for column in ("qty", "set_code", "collector_number"):
+        if column not in enriched.columns:
+            enriched[column] = pd.NA
+
+    if "qty_collection" in enriched.columns:
+        enriched["qty"] = enriched["qty_collection"].combine_first(enriched["qty"])
+    drop_columns = [name for name in ["qty_collection"] if name in enriched.columns]
+    if drop_columns:
+        enriched = enriched.drop(columns=drop_columns)
+
+    ordered_columns = [
+        "scryfall_id",
+        "finish",
+        "mtgjson_uuid",
+        "qty",
+        "set_code",
+        "collector_number",
+        "today_date",
+        "today_price",
+        "window_days",
+        "past_date",
+        "past_price",
+        "abs_change",
+        "pct_change",
+    ]
+    return enriched.reindex(columns=ordered_columns)
+
+
+def build_spike_summary(spikes_df: pd.DataFrame) -> pd.DataFrame:
+    if spikes_df.empty:
+        return pd.DataFrame(columns=SUMMARY_COLUMNS)
+
+    sorted_df = spikes_df.sort_values(["pct_change", "abs_change"], ascending=[False, False])
+    summary_df = sorted_df.drop_duplicates(subset=["scryfall_id", "finish"], keep="first").copy()
+    summary_df = summary_df.rename(columns={"window_days": "best_window_days"})
+    summary_df = summary_df[SUMMARY_COLUMNS]
+    return summary_df.sort_values(
+        ["pct_change", "abs_change"], ascending=[False, False]
+    ).reset_index(drop=True)
 
 
 def _load_prior_state(state_in_path: Path, seed_state_path: Path) -> pd.DataFrame:
@@ -383,6 +474,7 @@ def _date_minus_days(date_str: str, days: int) -> str:
 
 def render_spikes_markdown(
     spikes_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
     today_date: str,
     windows: tuple[int, ...],
     price_floor: float,
@@ -393,34 +485,40 @@ def render_spikes_markdown(
     header = [
         f"# Daily Spikes Report ({today_date})",
         "",
-        f"- Windows: {', '.join(str(w) for w in windows)}",
-        f"- Price floor: {price_floor:.2f}",
-        f"- pct_threshold: {pct_threshold:.2f}",
-        f"- Guardrail: abs_change >= {abs_min:.2f} OR pct_change >= {pct_override:.2f}",
-        "",
-        f"Total spikes: {len(spikes_df)}",
+        f"- Date: {today_date}",
+        (
+            "- Thresholds: "
+            f"windows={', '.join(str(w) for w in windows)} | "
+            f"floor={price_floor:.2f} | "
+            f"pct>={pct_threshold:.2f} | "
+            f"guardrail(abs>={abs_min:.2f} or pct>={pct_override:.2f})"
+        ),
+        f"- Total spike rows: {len(spikes_df)}",
+        f"- Unique spiking printings: {len(summary_df)}",
         "",
     ]
 
-    if spikes_df.empty:
+    if summary_df.empty:
         header.append("No spikes met thresholds today.")
         return "\n".join(header) + "\n"
 
-    top = spikes_df.head(20)
+    top = summary_df.head(15)
     lines = [
-        "| scryfall_id | finish | qty | window_days | today_price | past_price "
-        "| abs_change | pct_change |",
-        "|---|---|---:|---:|---:|---:|---:|---:|",
+        "| set_code | collector_number | finish | qty | today_price | "
+        "past_price | best_window_days | abs_change | pct_change |",
+        "|---|---:|---|---:|---:|---:|---:|---:|---:|",
     ]
     for row in top.itertuples(index=False):
         row_line = (
-            "| {scryfall_id} | {finish} | {qty} | {window_days} | "
-            "{today_price:.2f} | {past_price:.2f} | {abs_change:.2f} | {pct_change:.2%} |"
+            "| {set_code} | {collector_number} | {finish} | {qty} | "
+            "{today_price:.2f} | {past_price:.2f} | {best_window_days} | "
+            "{abs_change:.2f} | {pct_change:.2%} |"
         ).format(
-            scryfall_id=row.scryfall_id,
+            set_code="" if pd.isna(row.set_code) else row.set_code,
+            collector_number="" if pd.isna(row.collector_number) else row.collector_number,
             finish=row.finish,
             qty="" if pd.isna(row.qty) else int(row.qty),
-            window_days=int(row.window_days),
+            best_window_days=int(row.best_window_days),
             today_price=float(row.today_price),
             past_price=float(row.past_price),
             abs_change=float(row.abs_change),
@@ -428,7 +526,7 @@ def render_spikes_markdown(
         )
         lines.append(row_line)
 
-    return "\n".join(header + ["Top movers by pct_change:", ""] + lines) + "\n"
+    return "\n".join(header + ["Top 15 unique printings by pct_change:", ""] + lines) + "\n"
 
 
 def load_allprices_today(path: Path) -> dict[str, Any]:

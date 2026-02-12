@@ -146,7 +146,8 @@ mtg-tracker daily \
 
 Outputs:
 - `data/state/state.parquet` with rolling local state for the last N unique dates.
-- `data/reports/spikes_YYYY-MM-DD.csv` with spike candidates.
+- `data/reports/spikes_YYYY-MM-DD.csv` with detailed spike candidates (per triggered window), enriched with collection metadata when available.
+- `data/reports/spikes_YYYY-MM-DD_summary.csv` with one best row per `(scryfall_id, finish)` sorted by `%` change.
 - `data/reports/spikes_YYYY-MM-DD.md` markdown summary (UTC date).
 
 Behavior notes:
