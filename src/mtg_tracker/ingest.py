@@ -11,10 +11,11 @@ import pandas as pd
 LOGGER = logging.getLogger(__name__)
 
 REQUIRED_COLUMNS = {"scryfall_id", "qty", "finish"}
-OPTIONAL_COLUMNS = ["set_code", "collector_number"]
+OPTIONAL_COLUMNS = ["name", "set_code", "collector_number"]
 VALID_FINISHES = {"normal", "foil", "etched"}
 COLUMN_ALIASES = {
     "Scryfall ID": "scryfall_id",
+    "Name": "name",
     "Foil": "finish",
     "Quantity": "qty",
     "Set code": "set_code",
