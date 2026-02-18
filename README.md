@@ -155,6 +155,7 @@ Behavior notes:
 - Missing prices are not forward-filled; spike windows are skipped if today/past prices are missing.
 - Guardrail: spike promotion requires `abs_change >= abs_min` OR `pct_change >= pct_override`.
 
+<<<<<<< HEAD
 ## Streamlit Collection Explorer (read-only)
 
 Run:
@@ -183,3 +184,28 @@ Windowed comparisons prefer the 90-day seed history when available, and that 90-
 dataset is also used for the detail chart so longer windows remain visible.
 
 The app is read-only and does not modify collection or state files.
+=======
+
+## Viewer (Phase 4 MVP)
+
+Install viewer/dev dependencies:
+
+```bash
+python -m pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Run the dashboard:
+
+```bash
+streamlit run viewer/app.py
+```
+
+Expected gitignored inputs:
+- `data/state/state.parquet` (preferred rolling state from daily runs)
+- `data/seed/state.parquet` (fallback state if daily state is missing)
+- `data/reports/spikes_*_summary.csv` (latest spikes summary from daily runs)
+- Optional: `data/seed/seed_90d.parquet` for longer history charts
+
+If files are missing, the app shows a friendly setup message instead of crashing.
+
+>>>>>>> origin/main
