@@ -154,3 +154,27 @@ Behavior notes:
 - If `--state-in` does not exist, `--seed-state` is used to initialize state.
 - Missing prices are not forward-filled; spike windows are skipped if today/past prices are missing.
 - Guardrail: spike promotion requires `abs_change >= abs_min` OR `pct_change >= pct_override`.
+
+
+## Viewer (Phase 4 MVP)
+
+Install viewer/dev dependencies:
+
+```bash
+python -m pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Run the dashboard:
+
+```bash
+streamlit run viewer/app.py
+```
+
+Expected gitignored inputs:
+- `data/state/state.parquet` (preferred rolling state from daily runs)
+- `data/seed/state.parquet` (fallback state if daily state is missing)
+- `data/reports/spikes_*_summary.csv` (latest spikes summary from daily runs)
+- Optional: `data/seed/seed_90d.parquet` for longer history charts
+
+If files are missing, the app shows a friendly setup message instead of crashing.
+
