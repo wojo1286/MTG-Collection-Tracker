@@ -155,6 +155,36 @@ Behavior notes:
 - Missing prices are not forward-filled; spike windows are skipped if today/past prices are missing.
 - Guardrail: spike promotion requires `abs_change >= abs_min` OR `pct_change >= pct_override`.
 
+<<<<<<< HEAD
+## Streamlit Collection Explorer (read-only)
+
+Run:
+
+```bash
+streamlit run src/mtg_tracker/viewer.py
+```
+
+The viewer reads default paths (or `config.yaml` overrides under `viewer.*`):
+- collection: `data/out/collection.parquet`
+- recent state: `data/state/state.parquet`
+- 90-day history: `data/seed/seed_90d.parquet`
+
+Tabs:
+- **Spikes** (existing behavior placeholder)
+- **Collection Explorer** with views:
+  - **Search**: name contains + finish + minimum latest price
+  - **Highest Value Cards**: top cards by `latest_price * qty`
+  - **Risers / Decliners**:
+    - mode toggle (Risers or Decliners)
+    - window selector: `7/14/30/60/90` days (default 7)
+    - filters: name search, finish, minimum latest price, minimum qty
+    - ranking columns include `latest_date`, `past_date`, `abs_change`, and `pct_change`
+
+Windowed comparisons prefer the 90-day seed history when available, and that 90-day
+dataset is also used for the detail chart so longer windows remain visible.
+
+The app is read-only and does not modify collection or state files.
+=======
 
 ## Viewer (Phase 4 MVP)
 
@@ -178,3 +208,4 @@ Expected gitignored inputs:
 
 If files are missing, the app shows a friendly setup message instead of crashing.
 
+>>>>>>> origin/main
